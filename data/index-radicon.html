@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    >
+    <meta name="theme-color" content="#101b2b">
+    <title>ラジコン操作</title>
+
+    <!-- 配色・レイアウト・操作部品のスタイル -->
+    <style>
+      :root
+      {
+          color-scheme: dark;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          background: #101b2b;
+          color: #edf4ff;
+      }
+
+      *
+      {
+          box-sizing: border-box;
+      }
+
+      body
+      {
+          margin: 0;
+          padding: max(22px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+      }
+
+      main
+      {
+          max-width: 600px;
+          margin: auto;
+      }
+
+      header
+      {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+      }
+
+      h1
+      {
+          margin: 6px 0;
+          font-size: 28px;
+      }
+
+      h2
+      {
+          font-size: 18px;
+          margin: 0 0 18px;
+      }
+
+      p
+      {
+          color: #acbed7;
+          line-height: 1.7;
+      }
+
+      .tag
+      {
+          border: 1px solid #456080;
+          border-radius: 30px;
+          padding: 7px 12px;
+          white-space: nowrap;
+          font-size: 13px;
+      }
+
+      .card
+      {
+          margin-top: 18px;
+          padding: 22px;
+          border: 1px solid #30455f;
+          border-radius: 22px;
+          background: #192940;
+      }
+
+      .row
+      {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+      }
+
+      output
+      {
+          font-variant-numeric: tabular-nums;
+          color: #88c8ff;
+          font-size: 20px;
+      }
+
+      input[type=range]
+      {
+          width: 100%;
+          min-height: 48px;
+          accent-color: #69b4ff;
+          cursor: pointer;
+          touch-action: none;
+      }
+
+      .scale
+      {
+          display: flex;
+          justify-content: space-between;
+          color: #acbed7;
+          font-size: 13px;
+      }
+
+      button
+      {
+          border: 0;
+          border-radius: 16px;
+          min-height: 58px;
+          padding: 14px 18px;
+          font: inherit;
+          font-weight: 650;
+          color: #fff;
+          background: #304b6c;
+          cursor: pointer;
+      }
+
+      button:focus-visible, input:focus-visible
+      {
+          outline: 3px solid #fff;
+          outline-offset: 4px;
+      }
+
+      .hold
+      {
+          width: 100%;
+          min-height: 92px;
+          font-size: 22px;
+          background: #246aca;
+          touch-action: none;
+          user-select: none;
+          -webkit-user-select: none;
+          -webkit-touch-callout: none;
+      }
+
+      .hold.active
+      {
+          background: #49a5ed;
+          box-shadow: 0 0 0 3px #a2d5ff;
+      }
+
+      .buttons
+      {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+          margin-top: 22px;
+      }
+
+      #stop
+      {
+          width: 100%;
+          background: #c83e53;
+          margin-top: 14px;
+          font-size: 20px;
+      }
+
+      #center
+      {
+          min-height: 42px;
+          font-size: 14px;
+      }
+
+      #status
+      {
+          color: #b7d4ff;
+          margin: 0;
+      }
+
+      #log
+      {
+          max-height: 140px;
+          overflow: auto;
+          font-size: 12px;
+          color: #a9bdd7;
+          line-height: 1.8;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+      }
+
+      .small
+      {
+          font-size: 13px;
+          margin-bottom: 0;
+      }
+
+      a
+      {
+          color: #8ec8ff;
+      }
+
+      @media(max-width: 360px)
+      {
+          .card
+          {
+              padding: 16px;
+          }
+
+          h1
+          {
+              font-size: 24px;
+          }
+
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <!-- タイトルと接続状態 -->
+      <header>
+        <div>
+          <p class="small">ESP32 · ROBOT CONTROL</p>
+          <h1>ラジコン操作</h1>
+        </div>
+        <span id="mode" class="tag">接続確認中</span>
+      </header>
+
+      <p>
+        ハンドルで方向を決め、前進・後退を押して走行。<br>
+        走行ボタンから指を離すと停止します。
+      </p>
+
+      <!-- ハンドル：-100〜100を送信時に-1〜1へ変換 -->
+      <section class="card" aria-labelledby="steering-title">
+        <div class="row">
+          <h2 id="steering-title">ハンドル</h2>
+          <output id="steering-value" for="steering">中央</output>
+        </div>
+
+        <input
+          id="steering"
+          type="range"
+          min="-100"
+          max="100"
+          step="1"
+          value="0"
+          aria-label="ハンドル 左から右"
+        >
+        <div class="scale">
+          <span>左 −1</span>
+          <span>中央 0</span>
+          <span>右 +1</span>
+        </div>
+
+        <div class="row" style="margin-top:18px">
+          <p class="small">旋回は左右輪の回転差で行います。</p>
+          <button id="center" type="button">中央へ</button>
+        </div>
+      </section>
+
+      <!-- 走行パワーと、押している間だけ動く前進・後退ボタン -->
+      <section class="card" aria-labelledby="drive-title">
+        <div class="row">
+          <h2 id="drive-title">走行パワー</h2>
+          <output id="speed-value" for="speed">30%</output>
+        </div>
+
+        <input
+          id="speed"
+          type="range"
+          min="10"
+          max="100"
+          step="5"
+          value="30"
+          aria-label="走行パワー"
+        >
+        <div class="scale">
+          <span>10%</span>
+          <span>100%</span>
+        </div>
+
+        <div class="buttons">
+          <button
+            id="forward"
+            class="hold"
+            type="button"
+            aria-pressed="false"
+          >↑ 前進</button>
+          <button
+            id="backward"
+            class="hold"
+            type="button"
+            aria-pressed="false"
+          >↓ 後退</button>
+        </div>
+
+        <button id="stop" type="button">停止</button>
+        <p class="small">
+          旋回が大きいと片輪が逆回転します。指を離す・画面を離れる・通信エラーで停止入力に戻ります。
+        </p>
+      </section>
+
+      <!-- ジャイロターン -->
+      <section class="card" aria-labelledby="gyro-title">
+        <div class="row">
+          <h2 id="gyro-title">ジャイロターン</h2>
+          <output id="gyro-value" for="gyro">0°</output>
+        </div>
+
+        <input
+          id="gyro"
+          type="range"
+          min="-180"
+          max="180"
+          step="1"
+          value="0"
+          aria-label="ジャイロターン"
+        >
+        <div class="scale">
+          <span>-180°</span>
+          <span>180°</span>
+        </div>
+
+        <div class="buttons">
+          <button
+            id="forward"
+            class="hold"
+            type="button"
+            aria-pressed="false"
+          >↑ 前進</button>
+          <button
+            id="backward"
+            class="hold"
+            type="button"
+            aria-pressed="false"
+          >↓ 後退</button>
+        </div>
+
+        <button id="stop" type="button">停止</button>
+        <p class="small">
+          旋回が大きいと片輪が逆回転します。指を離す・画面を離れる・通信エラーで停止入力に戻ります。
+        </p>
+      </section>
+
+      <!-- ESP32への受信確認と通信履歴 -->
+      <section class="card" aria-label="通信状態">
+        <div class="row">
+          <h2>通信状態</h2>
+          <output id="power-value">停止</output>
+        </div>
+
+        <p id="status" role="status" aria-live="polite">接続確認中</p>
+        <pre id="log" aria-label="通信履歴"></pre>
+        <p class="small">
+          IMUの計測表示は未実装です。<a id="settings-link" href="/setting">接続情報</a>
+        </p>
+      </section>
+    </main>
+
+    <script>
+      'use strict';
+      // DOM参照とプレビュー判定
+      const byId = id => document.getElementById(id);
+      const steeringInput = byId('steering');
+      const speedInput = byId('speed');
+      const preview =
+          location.protocol === 'file:' ||
+          ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+      // 操作状態と送信状態
+      let direction = 0;
+      let activePointer = null;
+      let activeButton = null;
+      let revision = 0;
+      let busy = false;
+      let pending = false;
+      let failed = false;
+      const history = [];
+      const holdButtons = [byId('forward'), byId('backward')];
+
+      // 通信履歴と画面表示
+      function log(message)
+      {
+          history.unshift(message);
+          history.length = Math.min(history.length, 8);
+          byId('log').textContent = history.join('\n');
+      }
+
+      function render()
+      {
+          const steering = Number(steeringInput.value) / 100;
+          byId('steering-value').textContent = steering === 0
+              ? '中央'
+              : `${steering < 0 ? '左' : '右'} ${Math.abs(steering).toFixed(2)}`;
+          byId('speed-value').textContent = `${speedInput.value}%`;
+          const power = direction * Number(speedInput.value) / 100;
+          byId('power-value').textContent = direction === 0
+              ? '停止'
+              : `${direction > 0 ? '前進' : '後退'} ${Math.abs(power * 100).toFixed(0)}%`;
+          for (const button of holdButtons)
+          {
+              const pressed = button === activeButton && direction !== 0;
+              button.classList.toggle('active', pressed);
+              button.setAttribute('aria-pressed', String(pressed));
+          }
+      }
+
+      // 走行停止時もハンドル位置は保持する。
+      function releaseControl()
+      {
+          const oldPointer = activePointer;
+          const oldButton = activeButton;
+          activePointer = null;
+          activeButton = null;
+          direction = 0;
+          if (oldButton && oldPointer !== null && oldButton.hasPointerCapture(oldPointer))
+          {
+              oldButton.releasePointerCapture(oldPointer);
+          }
+          revision++;
+          render();
+      }
+
+      function changed()
+      {
+          revision++;
+          render();
+          pending = true;
+          pump();
+      }
+
+      function stop()
+      {
+          releaseControl();
+          pending = true;
+          pump();
+      }
+
+      // HTTP通信と定期送信
+      async function request(path)
+      {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 300);
+          try
+          {
+              const response = await fetch(path,
+              {
+                  cache: 'no-store',
+                  signal: controller.signal
+              });
+              if (!response.ok)
+              {
+                  throw new Error(`HTTP ${response.status}`);
+              }
+              return await response.text();
+          }
+          finally
+          {
+              clearTimeout(timer);
+          }
+      }
+
+      async function pump()
+      {
+          if (busy || !pending || document.hidden)
+          {
+              return;
+          }
+          pending = false;
+          busy = true;
+          const sentRevision = revision;
+          const steering = Number(steeringInput.value) / 100;
+          const power = direction * Number(speedInput.value) / 100;
+          try
+          {
+              if (preview)
+              {
+                  byId('mode').textContent = 'プレビュー';
+                  byId('status').textContent = '画面の確認中 · ESP32への送信は行いません';
+                  return;
+              }
+              // 停止時はパワー0を先に送る。走行中は操舵→パワーの順で送る。
+              const paths = power === 0
+                  ? ['/power?power=0', `/steering?steering=${steering.toFixed(2)}`]
+                  : [`/steering?steering=${steering.toFixed(2)}`, `/power?power=${power.toFixed(2)}`];
+              for (const path of paths)
+              {
+                  if (sentRevision !== revision)
+                  {
+                      return;
+                  }
+                  await request(path);
+              }
+              if (sentRevision === revision)
+              {
+                  byId('mode').textContent = 'ESP32 接続中';
+                  byId('status').textContent =
+                      `受信確認 · ハンドル ${steering.toFixed(2)} / パワー ${power.toFixed(2)}`;
+                  if (failed)
+                  {
+                      log('通信が復旧しました。停止状態から再操作してください。');
+                  }
+                  failed = false;
+              }
+          }
+          catch (error)
+          {
+              releaseControl();
+              if (!failed)
+              {
+                  log(`通信エラー (${error.message}) · 停止入力に戻しました`);
+              }
+              failed = true;
+              // 次の定期送信では停止だけを送る。古い走行指令は再送しない。
+              pending = false;
+              byId('mode').textContent = '通信エラー';
+              byId('status').textContent = '停止入力 · ESP32の応答待ち';
+          }
+          finally
+          {
+              busy = false;
+              if (pending)
+              {
+                  setTimeout(pump, 0);
+              }
+          }
+      }
+
+      // 前進・後退ボタンの押下／解除イベント
+      function bindHold(button, nextDirection)
+      {
+          button.addEventListener('pointerdown', event =>
+          {
+              if (activePointer !== null || event.button !== 0)
+              {
+                  return;
+              }
+              event.preventDefault();
+              activePointer = event.pointerId;
+              activeButton = button;
+              direction = nextDirection;
+              button.setPointerCapture(activePointer);
+              changed();
+          });
+          for (const name of ['pointerup', 'pointercancel', 'lostpointercapture'])
+          {
+              button.addEventListener(name, event =>
+              {
+                  if (event.pointerId === activePointer)
+                  {
+                      stop();
+                  }
+              });
+          }
+          button.addEventListener('contextmenu', event => event.preventDefault());
+          // キーボード操作も押している間だけ走行する。
+          button.addEventListener('keydown', event =>
+          {
+              if (![' ', 'Enter'].includes(event.key))
+              {
+                  return;
+              }
+              event.preventDefault();
+              if (event.repeat || activeButton)
+              {
+                  return;
+              }
+              activeButton = button;
+              direction = nextDirection;
+              changed();
+          });
+          button.addEventListener('keyup', event =>
+          {
+              if ([' ', 'Enter'].includes(event.key) && activeButton === button)
+              {
+                  stop();
+              }
+          });
+          button.addEventListener('blur', () =>
+          {
+              if (activeButton === button)
+              {
+                  stop();
+              }
+          });
+      }
+
+      // 画面操作・ページ離脱イベントの登録
+      bindHold(byId('forward'), 1);
+      bindHold(byId('backward'), -1);
+      steeringInput.addEventListener('input', changed);
+      speedInput.addEventListener('input', changed);
+      byId('center').addEventListener('click', () =>
+      {
+          steeringInput.value = '0';
+          changed();
+      });
+      byId('stop').addEventListener('click', stop);
+      window.addEventListener('blur', stop);
+      window.addEventListener('pagehide', stop);
+      document.addEventListener('visibilitychange', stop);
+      window.addEventListener('keydown', event =>
+      {
+          if (event.key === 'Escape')
+          {
+              stop();
+          }
+      });
+      if (preview)
+      {
+          byId('settings-link').removeAttribute('href');
+          byId('settings-link').textContent = '実機接続時に接続情報を表示できます';
+      }
+      // 初期表示と120ms間隔の定期送信
+      render();
+      pending = true;
+      pump();
+      setInterval(() =>
+      {
+          if (!document.hidden)
+          {
+              pending = true;
+              pump();
+          }
+      }, 120);
+    </script>
+  </body>
+</html>

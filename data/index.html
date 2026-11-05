@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ESP32 Robot</title>
+
+    <style>
+      body {
+        margin: 0;
+        background: #172030;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        text-align: center;
+        padding: 24px 12px;
+      }
+
+      main {
+        max-width: 400px;
+        margin: auto;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+
+      .pad {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin: 30px 0;
+      }
+
+      button {
+        min-height: 82px;
+        border: 0;
+        border-radius: 16px;
+        background: #3176da;
+        color: white;
+        font-size: 22px;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+      }
+
+      button:active {
+        background: #609aff;
+      }
+
+      #stop {
+        background: #ce3d4e;
+      }
+
+      #status {
+        padding: 18px;
+        background: #26364e;
+        border-radius: 12px;
+      }
+
+      .communication {
+        margin-top: 24px;
+        text-align: left;
+      }
+
+      #servo-angle {
+        width: 100%;
+        margin: 20px 0;
+        touch-action: none;
+        user-select: none;
+        cursor: pointer;
+        border-radius: 16px;
+      }
+
+      #servo-angle:focus-visible {
+        outline: 3px solid #8dbaff;
+        outline-offset: 4px;
+      }
+
+      #servo-dial {
+        display: block;
+        width: 100%;
+      }
+
+      .servo-label {
+        fill: #c5d2e6;
+        font-size: 15px;
+        text-anchor: middle;
+      }
+
+      .communication h2 {
+        font-size: 18px;
+      }
+
+      #communication-log {
+        height: 180px;
+        overflow-y: auto;
+        padding: 12px;
+        background: #101827;
+        border-radius: 12px;
+        font-size: 13px;
+        line-height: 1.7;
+        overflow-wrap: anywhere;
+      }
+
+      p {
+        line-height: 1.7;
+        color: #c5d2e6;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <h1>ESP32 Robot</h1>
+      <p>
+        ボタンを押している間だけ操作<br>
+        指を離すと停止します
+      </p>
+
+      <div class="pad">
+        <!-- 上段 -->
+        <span></span>
+        <button data-motion="FORWARD" aria-label="前進">前進</button>
+        <span></span>
+
+        <!-- 中段 -->
+        <button data-motion="LEFT">左</button>
+        <button id="stop">停止</button>
+        <button data-motion="RIGHT">右</button>
+
+        <!-- 下段 -->
+        <span></span>
+        <button data-motion="BACKWARD">後退</button>
+        <span></span>
+      </div>
+
+      <div id="status" role="status">操作: STOP</div>
+      <p>方向ボタンは通信テスト用 · SG90は実際に動きます</p>
+
+      <section aria-labelledby="servo-title">
+        <h2 id="servo-title">SG90 サーボ</h2>
+        <p>指定角度: <output id="servo-value">90</output>°</p>
+        <!-- 中心(160,160)、半径120の上半円。右端0°、上90°、左端180°。 -->
+        <div id="servo-angle" role="slider" tabindex="0"
+             aria-label="サーボの指定角度" aria-valuemin="0" aria-valuemax="180"
+             aria-valuenow="90" aria-valuetext="90度" aria-describedby="servo-help">
+          <svg id="servo-dial" viewBox="0 0 320 200" aria-hidden="true">
+            <path d="M 40 160 A 120 120 0 0 1 280 160 L 160 160 Z" fill="#26364e"/>
+            <path d="M 40 160 A 120 120 0 0 1 280 160" fill="none"
+                  stroke="#6084b8" stroke-width="10" stroke-linecap="round"/>
+            <line id="servo-needle" x1="160" y1="160" x2="160" y2="40"
+                  stroke="#8dbaff" stroke-width="4"/>
+            <circle cx="160" cy="160" r="6" fill="#8dbaff"/>
+            <circle id="servo-knob" cx="160" cy="40" r="14"
+                    fill="#3176da" stroke="white" stroke-width="3"/>
+            <text class="servo-label" x="40" y="190">180°</text>
+            <text class="servo-label" x="160" y="18">90°</text>
+            <text class="servo-label" x="280" y="190">0°</text>
+          </svg>
+        </div>
+        <p id="servo-help">扇形をドラッグして操作<br>矢印キー: 1° / Home: 0° / End: 180°</p>
+        <button id="servo-center" type="button">90°へ戻す</button>
+        <p>通信切断時・停止ボタン操作時も、サーボは最後の指定位置を保持します。</p>
+      </section>
+
+      <section class="communication" aria-labelledby="log-title">
+        <h2 id="log-title">通信ログ</h2>
+        <div id="communication-log" role="log" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script>
+      // 操作表示はユーザーの操作時だけ更新する。
+      let motion = 'STOP';
+      let active = null;
+      let busy = false;
+      let lastCommunication = '';
+
+      const status = document.getElementById('status');
+      const communicationLog = document.getElementById('communication-log');
+
+      function logCommunication(message) 
+      {
+        // 定期送信で同じ結果が続く間は、ログを増やさない。
+        if (message === lastCommunication) return;
+        lastCommunication = message;
+
+        const entry = document.createElement('div');
+        entry.textContent = new Date().toLocaleTimeString('ja-JP') + ' ' + message;
+        communicationLog.appendChild(entry);
+
+        // 長時間開いてもログが増え続けないよう、最新100件だけ残す。
+        while (communicationLog.childElementCount > 100) 
+        {
+          communicationLog.firstElementChild.remove();
+        }
+        communicationLog.scrollTop = communicationLog.scrollHeight;
+      }
+
+      // ファイルを直接開いた場合とlocalhostでは、通信せず表示だけ確認する。
+      const preview = location.protocol === 'file:' || ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
+
+      if (preview) 
+      {
+        logCommunication('ローカルプレビュー：ESP32へは送信しません');
+      }
+
+      function stop() 
+      {
+        motion = 'STOP';
+        active = null;
+        status.textContent = '操作: ' + motion;
+        send();
+      }
+
+      // ===========================
+      //  サーボ
+      // ===========================
+
+      const servoSlider = document.getElementById('servo-angle');
+      const servoValue = document.getElementById('servo-value');
+      const servoDial = document.getElementById('servo-dial');
+      const servoKnob = document.getElementById('servo-knob');
+      const servoNeedle = document.getElementById('servo-needle');
+      let servoAngle = 90;
+      let servoPointer = null;
+      let servoPending = null;
+      let servoBusy = false;
+
+      // 入力表示は通信結果にかかわらず、ユーザーが指定した値を表示する。
+      function requestServo(angle) 
+      {
+        angle = Math.max(0, Math.min(180, Math.round(angle)));
+        servoAngle = angle;
+        servoValue.textContent = angle;
+        servoSlider.setAttribute('aria-valuenow', angle);
+        servoSlider.setAttribute('aria-valuetext', angle + '度');
+
+        // 度をラジアンへ変換し、円周上のつまみと針の先端を更新する。
+        const radians = angle * Math.PI / 180;
+        const x = 160 + 120 * Math.cos(radians);
+        const y = 160 - 120 * Math.sin(radians);
+        servoKnob.setAttribute('cx', x);
+        servoKnob.setAttribute('cy', y);
+        servoNeedle.setAttribute('x2', x);
+        servoNeedle.setAttribute('y2', y);
+        servoPending = angle;
+      }
+
+      async function sendServo() 
+      {
+        if (servoBusy || servoPending === null) return;
+        const angle = servoPending;
+        servoPending = null;
+        
+        if (preview) 
+        {
+          logCommunication('ローカルプレビュー / SG90指定: ' + angle + '°（送信なし）');
+          return;
+        }
+
+        servoBusy = true;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 400);
+        try 
+        {
+          const response = await fetch('/servo?angle=' + angle, {
+            cache: 'no-store',
+            signal: controller.signal
+          });
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          logCommunication('サーボ通信成功 / ' + await response.text());
+        } 
+        catch (error) 
+        {
+          const reason = error.name === 'AbortError' ? 'タイムアウト' : error.message;
+          logCommunication('サーボ通信エラー: ' + reason + ' / 指定: ' + angle + '°');
+        } 
+        finally 
+        {
+          clearTimeout(timer);
+          servoBusy = false;
+        }
+      }
+
+      // ブラウザーの座標をSVGの座標へ変換するので、画面サイズが変わっても一致する。
+      function moveServoPointer(event)
+      {
+        const matrix = servoDial.getScreenCTM();
+        if (!matrix) return;
+        const point = servoDial.createSVGPoint();
+        point.x = event.clientX;
+        point.y = event.clientY;
+        const local = point.matrixTransform(matrix.inverse());
+        const dx = local.x - 160;
+        const dy = local.y - 160;
+
+        // 中心の近くでは微小な指の動きで角度が急変するため、入力を無視する。
+        if (Math.hypot(dx, dy) < 24) return;
+        const radians = Math.atan2(Math.max(0, -dy), dx);
+        requestServo(radians * 180 / Math.PI);
+      }
+
+      servoSlider.addEventListener('pointerdown', event => {
+        if (servoPointer !== null || event.button !== 0) return;
+        event.preventDefault();
+        servoSlider.focus();
+        servoPointer = event.pointerId;
+        servoSlider.setPointerCapture(servoPointer);
+        moveServoPointer(event);
+      });
+      servoSlider.addEventListener('pointermove', event => {
+        if (event.pointerId === servoPointer) moveServoPointer(event);
+      });
+      for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+        servoSlider.addEventListener(name, event => 
+        {
+          if (event.pointerId !== servoPointer) return;
+          servoPointer = null;
+          if (servoSlider.hasPointerCapture(event.pointerId)) 
+          {
+            servoSlider.releasePointerCapture(event.pointerId);
+          }
+          sendServo();
+        });
+      }
+      servoSlider.addEventListener('contextmenu', event => event.preventDefault());
+      document.getElementById('servo-center').addEventListener('click', () => {
+        requestServo(90);
+        sendServo();
+      });
+      // ドラッグ中は最新値だけを最大10回/秒で送り、要求の滞留を防ぐ。
+      // 画面を開くだけでは送信しないため、再接続時に勝手に中央へ戻らない。
+      setInterval(sendServo, 100);
+
+      // ===========================
+      //  通信
+      // ===========================
+
+      async function send() 
+      {
+        if (preview) 
+        {
+          return;
+        }
+
+        if (busy) return;
+        busy = true;
+
+        const value = motion;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 400);
+
+        try 
+        {
+          const response = await fetch('/command?value=' + value, {
+            cache: 'no-store',
+            signal: controller.signal
+          });
+
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          const received = await response.text();
+
+          logCommunication('通信成功 / ESP32受信: ' + received);
+        } 
+        catch (error) 
+        {
+          // 通信失敗時の停止処理は維持し、操作表示は書き換えない。
+          motion = 'STOP';
+          active = null;
+          const reason = error.name === 'AbortError' ? 'タイムアウト' : error.message;
+          logCommunication('通信エラー: ' + reason + ' / 送信指令: ' + value + ' / 送信指令をSTOPに変更');
+        } 
+        finally 
+        {
+          clearTimeout(timer);
+          busy = false;
+        }
+      }
+
+      // 方向ボタン：押すと送信し、指が外れても離したイベントを受け取る。
+      document.querySelectorAll('[data-motion]').forEach(button => {
+        button.addEventListener('pointerdown', event => {
+          if (active !== null || event.button !== 0) return;
+
+          event.preventDefault();
+          active = event.pointerId;
+          button.setPointerCapture(active);
+          motion = button.dataset.motion;
+          status.textContent = '操作: ' + motion;
+          send();
+        });
+
+        for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+          button.addEventListener(name, event => {
+            if (event.pointerId === active) stop();
+          });
+        }
+
+        button.addEventListener('contextmenu', event => event.preventDefault());
+      });
+
+      // 操作終了・画面切り替え時は停止する。
+      document.getElementById('stop').addEventListener('click', stop);
+      window.addEventListener('blur', stop);
+      window.addEventListener('pagehide', stop);
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) stop();
+      });
+
+      // 押している間も定期送信し、ESP32側の通信タイムアウトを更新する。
+      setInterval(() => {
+        if (!document.hidden) send();
+      }, 150);
+
+      send();
+    </script>
+  </body>
+</html>
