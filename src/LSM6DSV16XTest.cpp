@@ -2,21 +2,19 @@
 #include <Wire.h>
 #include <SparkFun_LSM6DSV16X.h>
 #include "LSM6DSV16XController.hpp"
+#include "settings.hpp"
 
 // 秋月 AE-LSM6DSV16X / ESP32 DevKit (3.3 V)
 // 3V3 -> 3V3, GND -> GND, SDA -> GPIO21, SCL -> GPIO22
 // CS -> 3V3（J4は開放）、SDO/SA0 -> GNDで0x6A。
-constexpr int sdaPin = 21;
-constexpr int sclPin = 22;
 constexpr uint32_t printIntervalMs = 100;
 
 uint32_t lastPrintMs = 0;
 uint32_t lastSampleMs = 0;
 
-LSM6DSV16XController imu(sdaPin, sclPin);
+PendrumSettings pendrumSettings;
+LSM6DSV16XController imu(pendrumSettings.sdaPin, pendrumSettings.sclPin);
 float gyroX = 0.0f;
-
-
 
 
 uint32_t preUs = 0;

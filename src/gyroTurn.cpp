@@ -3,7 +3,6 @@
 #include "BNO055Controller.hpp"
 #include "TB6612FNGController/TB6612FNGController.hpp"
 #include "PIDlib.cpp"
-#include <math.h>
  
 // ESP32 DevKitのI2C配線。使用するピンに合わせて変更する。
 
@@ -37,6 +36,7 @@ bool gyroTurn(int target)
         {
             drive.stop();
             print("Gyro turn aborted: IMU read/state error");
+            delay(100);
             continue;
         }
         
@@ -54,7 +54,8 @@ bool gyroTurn(int target)
         {
             drive.stop();
             print("Gyro turn aborted: invalid PID output");
-            return false;
+            delay(100);
+            continue;
         }
         drive.drive(1, output);
 
@@ -83,22 +84,8 @@ void setup()
 
 void loop()
 {
-    // 異常後は再起動するまで次の旋回を開始しない。
-    if (turnFault)
-    {
-        delay(100);
-        return;
-    }
-    if (!gyroTurn(90))
-    {
-        turnFault = true;
-        return;
-    }
+    gyroTurn(90);
     delay(10);
-    if (!gyroTurn(270))
-    {
-        turnFault = true;
-        return;
-    }
+    gyroTurn(270);
     delay(10);
 }

@@ -3,18 +3,27 @@
 #include "LSM6DSV16XController.hpp"
 #include "TC78H653FTGController/TC78H653FTGController.hpp"
 
+PendrumSettings pendrumSettings;
+
 PID pid(1.0, 0.1, 0.01, true);
+LSM6DSV16XController imu(pendrumSettings.sdaPin, pendrumSettings.sclPin);
 
-constexpr int sdaPin = 21;
-constexpr int sclPin = 22;
-LSM6DSV16XController imu(sdaPin, sclPin);
-
-TC78H653FTGPins TCpins;
+TC78H653FTGPins TCpins =
+{
+    pendrumSettings.in1Pin,
+    pendrumSettings.in2Pin,
+    0xFF, // IN3: 未指定
+    0xFF, // IN4: 未指定
+    0xFF  // STBY: 未指定
+};
 TC78H653FTGController drive(TCpins, false, false);
 
 
 float gyroX = 0.0f;
 uint32_t preUs = 0;
+
+float target = 0;
+
 float calculateGyroX()
 {
     float dt = (micros() - preUs) / 1000000.0f;
@@ -30,12 +39,19 @@ float calculateGyroX()
     return gyroX;
 }
 
+void setupTargetAngle()
+{
+    target = 0;
+}
+
 void setup()
 {
     imu.setUp();
     imu.calibrate(false, true);
 
     drive.setUp();
+
+    setupTargetAngle();
 }
 
 void loop()
@@ -45,5 +61,5 @@ void loop()
         return;
     }
 
-    drive.drive(0, pid.calculate(0.0 - calculateGyroX()));
+    drive.drive(0, pid.calculate(target - calculateGyroX()));
 }

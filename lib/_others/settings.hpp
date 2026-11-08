@@ -55,3 +55,15 @@ struct RadiconSettings
     const bool isReversedA = false;
     const bool isReversedB = false;
 };
+
+// 倒立振子設定
+
+struct PendrumSettings
+{
+    const int sdaPin = 32;
+    const int sclPin = 27;
+    const int int1Pin = 25; // 現在はポーリング方式のため割り込みには未使用。
+
+    const uint8_t in1Pin = 16;
+    const uint8_t in2Pin = 17;
+};
