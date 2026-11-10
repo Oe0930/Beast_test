@@ -9,12 +9,24 @@ void ISteeringController::drive(float steering, float speed)
     float speedL = speed * (steering >= 0 ? 1.0 : 1.0 + steering*2);
     float speedR = speed * (steering <= 0 ? 1.0 : 1.0 - steering*2);
 
-    setSpeed(speedL, true);
-    setSpeed(speedR, false);
+    if (isUsedA)
+    {
+        setSpeed(speedL, true);
+    }
+    if (isUsedB)
+    {
+        setSpeed(speedR, false);
+    }
 }
 
 void ISteeringController::stop()
 {
-    setSpeed(0, true);
-    setSpeed(0, false);
+    if (isUsedA)
+    {
+        setSpeed(0, true);
+    }
+    if (isUsedB)
+    {
+        setSpeed(0, false);
+    }
 }

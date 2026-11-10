@@ -10,22 +10,21 @@ struct TC78H653FTGPins
     uint8_t phaseA;  // IN2/PHA_A: direction
     uint8_t enableB; // IN3/ENB_B: PWM
     uint8_t phaseB;  // IN4/PHA_B: direction
-    uint8_t standby;
 };
 
 class TC78H653FTGController : public ISteeringController
 {
 private:
     TC78H653FTGPins pins;
-    bool isReversedA;
-    bool isReversedB;
 
 public:
     TC78H653FTGController(
         const TC78H653FTGPins& pins,
         bool isReversedA,
-        bool isReversedB)
-        : pins(pins), isReversedA(isReversedA), isReversedB(isReversedB)
+        bool isReversedB,
+        bool isUsedA = true,
+        bool isUsedB = true)
+        : ISteeringController(isReversedA, isReversedB, isUsedA, isUsedB), pins(pins)
     {
     }
 

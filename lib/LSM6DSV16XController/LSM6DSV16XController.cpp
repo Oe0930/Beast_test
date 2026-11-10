@@ -4,6 +4,7 @@ bool LSM6DSV16XController::setUp()
 {
     if (!Wire.begin(sdaPin, sclPin, 100000))
     {
+        Serial.println("A");
         return false;
     }
     Wire.setTimeOut(100);
@@ -19,6 +20,7 @@ bool LSM6DSV16XController::setUp()
     }
     else
     {
+        Serial.println("B");
         return false;
     }
 
@@ -32,6 +34,7 @@ bool LSM6DSV16XController::setUp()
     {
         if (millis() - resetStartMs > 1000)
         {
+            Serial.println("C");
             return false;
         }
         delay(2);

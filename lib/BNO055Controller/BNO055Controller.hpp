@@ -25,7 +25,7 @@ class BNO055Controller
     Vector3<double> euler;
     Vector3<double> gyro; // XYZ軸まわりの角速度（度/秒）。
     Quaternion<double> quaternion; // 姿勢を表すw, x, y, z（単位なし）。
-    Vector3<double> accell;
+    Vector3<double> accel;
 
     // 0    ：未校正
     // 1,2  ：校正の途中
@@ -54,7 +54,7 @@ class BNO055Controller
     Vector3<double> getEuler() { return euler; }
     Vector3<double> getGyro() { return gyro; }
     Quaternion<double> getQuaternion() { return quaternion; }
-    Vector3<double> getAccell() { return accell; }
+    Vector3<double> getAccel() { return accel; }
     CalibrationStatus getCalibrationStatus() { return calibrationStatus; }
 
     bool reset = false;

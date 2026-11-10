@@ -2,21 +2,29 @@
 
 void TC78H653FTGController::setUp()
 {
-    digitalWrite(pins.standby, LOW);
-    pinMode(pins.standby, OUTPUT);
-    digitalWrite(pins.enableA, LOW);
-    digitalWrite(pins.enableB, LOW);
-    digitalWrite(pins.phaseA, LOW);
-    digitalWrite(pins.phaseB, LOW);
-    pinMode(pins.enableA, OUTPUT);
-    pinMode(pins.enableB, OUTPUT);
-    pinMode(pins.phaseA, OUTPUT);
-    pinMode(pins.phaseB, OUTPUT);
+    if (isUsedA)
+    {
+        pinMode(pins.enableA, OUTPUT);
+        pinMode(pins.phaseA, OUTPUT);
+        digitalWrite(pins.enableA, LOW);
+        digitalWrite(pins.phaseA, LOW);
+    }
+    if (isUsedB)
+    {
+        pinMode(pins.enableB, OUTPUT);
+        pinMode(pins.phaseB, OUTPUT);
+        digitalWrite(pins.enableB, LOW);
+        digitalWrite(pins.phaseB, LOW);
+    }
     stop();
 }
 
 void TC78H653FTGController::setSpeed(float speed, bool isA)
 {
+    if ((isA && !isUsedA) || (!isA && !isUsedB))
+    {
+        return;
+    }
     if ((isA && isReversedA) || (!isA && isReversedB))
     {
         speed = -speed;
@@ -35,12 +43,16 @@ void TC78H653FTGController::setSpeed(float speed, bool isA)
     }
 
     analogWrite(enable, static_cast<int>(abs(speed) * 255.0f));
-    digitalWrite(pins.standby, HIGH);
 }
 
 void TC78H653FTGController::stop()
 {
-    digitalWrite(pins.standby, LOW);
-    analogWrite(pins.enableA, 0);
-    analogWrite(pins.enableB, 0);
+    if (isUsedA)
+    {
+        analogWrite(pins.enableA, 0);
+    }
+    if (isUsedB)
+    {
+        analogWrite(pins.enableB, 0);
+    }
 }

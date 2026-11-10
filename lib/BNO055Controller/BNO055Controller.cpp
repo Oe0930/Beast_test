@@ -91,10 +91,10 @@ void BNO055Controller::Update(bool iseular, bool isGyro, bool isQuaternion,
 
     if (isAccell)
     {
-        imu::Vector<3> accellVector = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
-        accell.x = accellVector.x();
-        accell.y = accellVector.y();
-        accell.z = accellVector.z();
+        imu::Vector<3> accelVector = bno.getVector(Adafruit_BNO055::VECTOR_ACCELEROMETER);
+        accel.x = accelVector.x();
+        accel.y = accelVector.y();
+        accel.z = accelVector.z();
     }
 
     if (isCalibrationStatus)

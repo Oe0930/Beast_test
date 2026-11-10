@@ -18,14 +18,14 @@ class TB6612FNGController : public ISteeringController
 
         //uint8_t pinStandby;
 
-        bool isReversedA;
-        bool isReversedB;
 
 
 
     public:
-        TB6612FNGController(int pinIn1A, int pinIn2A, int pinPwmA, int pinIn1B, int pinIn2B, int pinPwmB, bool isReversedA, bool isReversedB) : 
-            pinIn1A(pinIn1A), pinIn2A(pinIn2A), pinPwmA(pinPwmA), pinIn1B(pinIn1B), pinIn2B(pinIn2B), pinPwmB(pinPwmB), isReversedA(isReversedA), isReversedB(isReversedB)
+        TB6612FNGController(int pinIn1A, int pinIn2A, int pinPwmA, int pinIn1B, int pinIn2B, int pinPwmB, bool isReversedA, bool isReversedB,
+                           bool isUsedA = true, bool isUsedB = true) :
+            ISteeringController(isReversedA, isReversedB, isUsedA, isUsedB),
+            pinIn1A(pinIn1A), pinIn2A(pinIn2A), pinPwmA(pinPwmA), pinIn1B(pinIn1B), pinIn2B(pinIn2B), pinPwmB(pinPwmB)
         {
         }
         

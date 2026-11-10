@@ -2,13 +2,19 @@
 
 void TB6612FNGController::setUp()
 {
-    //pinMode(pinStandby, OUTPUT);
-    pinMode(pinIn1A, OUTPUT);
-    pinMode(pinIn2A, OUTPUT);
-    pinMode(pinPwmA, OUTPUT);
-    pinMode(pinIn1B, OUTPUT);
-    pinMode(pinIn2B, OUTPUT);
-    pinMode(pinPwmB, OUTPUT);
+    //pinMode(pinStandby, OUTPUT);  
+    if (isUsedA)
+    {
+        pinMode(pinIn1A, OUTPUT);
+        pinMode(pinIn2A, OUTPUT);
+        pinMode(pinPwmA, OUTPUT);
+    }
+    if (isUsedB)
+    {
+        pinMode(pinIn1B, OUTPUT);
+        pinMode(pinIn2B, OUTPUT);
+        pinMode(pinPwmB, OUTPUT);
+    }
 
     //digitalWrite(pinStandby, LOW);
     
@@ -17,6 +23,10 @@ void TB6612FNGController::setUp()
 
 void TB6612FNGController::setSpeed(float speed, bool isA)
 {
+    if ((isA && !isUsedA) || (!isA && !isUsedB))
+    {
+        return;
+    }
     if ((isA && isReversedA) || (!isA && isReversedB))
     {
         speed = -speed;
@@ -31,11 +41,17 @@ void TB6612FNGController::setSpeed(float speed, bool isA)
 
 void TB6612FNGController::stop()
 {
-    digitalWrite(pinIn1A, LOW);
-    digitalWrite(pinIn2A, LOW);
-    analogWrite(pinPwmA, 0);
-    digitalWrite(pinIn1B, LOW);
-    digitalWrite(pinIn2B, LOW);
-    analogWrite(pinPwmB, 0);
+    if (isUsedA)
+    {
+        digitalWrite(pinIn1A, LOW);
+        digitalWrite(pinIn2A, LOW);
+        analogWrite(pinPwmA, 0);
+    }
+    if (isUsedB)
+    {
+        digitalWrite(pinIn1B, LOW);
+        digitalWrite(pinIn2B, LOW);
+        analogWrite(pinPwmB, 0);
+    }
     //digitalWrite(pinStandby, LOW);
 }
