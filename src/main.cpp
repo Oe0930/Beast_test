@@ -17,6 +17,8 @@ uint8_t previousClients = 0;
 void setMotion(MotionEnum next);
 void handleControl();
 void handleSettings();
+
+
 void handleCommand();
 void handleServo();
 void handleNotFound();
