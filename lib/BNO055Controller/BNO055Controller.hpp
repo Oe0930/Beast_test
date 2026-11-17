@@ -47,6 +47,8 @@ class BNO055Controller
     // 追加項目は末尾で指定する。既存の3引数の呼び出しも使用できる。
     void Update(bool iseular = true, bool isGyro = true, bool isQuaternion = true, bool isAccell = true, bool isCalibrationStatus = true);
 
+    
+
     // 旋回制御用。通信・NDOF動作状態を確認し、成功時だけ角度を更新する。
     // falseの場合、以前の角度を使って走行を続けてはいけない。
     bool TryUpdateEuler();

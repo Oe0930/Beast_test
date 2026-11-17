@@ -1,21 +1,14 @@
 #include "settings.hpp"
 #include "PIDlib.cpp"
 #include "BNO055Controller.hpp"
-#include "TC78H653FTGController/TC78H653FTGController.hpp"
+#include "DRV8830Controller.hpp"
 
 PendrumSettings pendrumSettings;
 
 PID pid(1.0, 0.1, 0.01, true);
 BNO055Controller bno(pendrumSettings.sdaPin, pendrumSettings.sclPin, pendrumSettings.bnoAddress);
 
-TC78H653FTGPins TCpins =
-{
-    pendrumSettings.in1Pin,
-    pendrumSettings.in2Pin,
-    0xFF, // IN3: 未指定
-    0xFF, // IN4: 未指定
-};
-TC78H653FTGController drive(TCpins, false, false, true, false);
+DRV8830Controller drive(pendrumSettings.sdaPin, pendrumSettings.sclPin, false, pendrumSettings.drvAddress);
 
 
 float gyroX = 0.0f;
@@ -44,10 +37,10 @@ void setupTargetAngle()
 
 void loop()
 {
-    drive.setSpeed(0.5f, true);
+    drive.setSpeed(0.5f);
     return;
 
     bno.Update(true, true);
 
-    drive.drive(0, pid.calculate(target - bno.getEuler().x));
+    drive.setSpeed(pid.calculate(target - bno.getEuler().x));
 }
